@@ -230,20 +230,58 @@ class CDPController:
             time.sleep(0.5)
         #raise TimeoutError(f"[ERROR] Timeout waiting for selector: {selector}")
     
-    def wait_for_recaptcha_ui_checked(self, selector=".recaptcha-checkbox-checked", timeout=30):
-        print("[...] Đang chờ giao diện CAPTCHA được xác nhận...")
-        root = self.get_root_node()["nodeId"]
+    def wait_for_recaptcha_checked(self, timeout=30):
+        print("[...] Đang chờ CAPTCHA checkbox được tick...")
+
         start = time.time()
-        
         while time.time() - start < timeout:
             try:
-                node_id = self.query_selector(root, selector)
-                if node_id and node_id != 0:
-                    print("[✓] CAPTCHA checkbox đã được tick.")
-                    return True
-            except:
+                # 1. Lấy toàn bộ frame
+                frame_tree = self.send("Page.getFrameTree")
+                frames = []
+
+                def collect_frames(tree):
+                    frames.append(tree["frame"])
+                    for child in tree.get("childFrames", []):
+                        collect_frames(child)
+
+                collect_frames(frame_tree["frameTree"])
+
+                # 2. Iterate từng frame
+                for frame in frames:
+                    frame_id = frame["id"]
+                    
+                    # 3. Tạo isolated world để chạy JS trong context iframe
+                    try:
+                        world = self.send("Page.createIsolatedWorld", {
+                            "frameId": frame_id,
+                            "grantUniveralAccess": True
+                        })
+                        context_id = world["executionContextId"]
+                    except:
+                        continue
+
+                    # 4. Chạy JS kiểm tra trong context đó
+                    res = self.send("Runtime.evaluate", {
+                        "expression": '''
+                            (function() {
+                                const el = document.querySelector(".recaptcha-checkbox-checked");
+                                return !!el;
+                            })();
+                        ''',
+                        "contextId": context_id
+                    })
+
+                    if res.get("result", {}).get("value") is True:
+                        print("[✓] CAPTCHA đã được tick trong frame:", frame_id)
+                        return True
+
+            except Exception as e:
                 pass
+
             time.sleep(0.5)
+
+        raise TimeoutError("Không phát hiện CAPTCHA được tick trong thời gian chờ.")
     
     def attach_to_new_tab(self, old_tab_ids):
             # Lấy danh sách tab hiện tại
@@ -348,7 +386,7 @@ for item in lead_ids:
 
     #----------- cliclk vào nút Summit  -----------    
     # Chờ cho CAPTCHA được check xong
-    cdp.wait_for_recaptcha_ui_checked(timeout=30)
+    cdp.wait_for_recaptcha_checked(timeout=30)
     print("✅ CAPTCHA đã được check.")
 
     node_id_Summit = cdp.wait_for_selector("input#btnSSSubmit.btn.btn-primary.pull-right",timeout=10)
