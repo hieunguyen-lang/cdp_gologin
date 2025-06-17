@@ -1,14 +1,14 @@
-"C:\Users\hieunk\.gologin\browser\orbita-browser-135\chrome.exe" ^
+"C:\Users\Admin\.gologin\browser\orbita-browser-135\chrome.exe" ^
 --remote-debugging-port=9222 ^
 --remote-allow-origins=* ^
---user-data-dir="C:\Users\hieunk\AppData\Local\Temp\GoLogin\profiles\6850fd9be54501a0183dab1e" ^
+--user-data-dir="C:\Users\Admin\AppData\Local\Temp\GoLogin\profiles\6850fd9be54501a0183dab1e" ^
 --no-first-run ^
 --no-default-browser-check 
 
-"C:\Users\hieunk\.gologin\browser\orbita-browser-135\chrome.exe" ^
---user-data-dir="C:\Users\hieunk\AppData\Local\Temp\GoLogin\profiles\6850fd9be54501a0183dab1e" ^
+"C:\Users\Admin\.gologin\browser\orbita-browser-135\chrome.exe" ^
+--user-data-dir="C:\Users\Admin\AppData\Local\Temp\GoLogin\profiles\6850fd9be54501a0183dab1e" ^
 --remote-debugging-port=9222 ^
 --remote-allow-origins=* 
 
 
-"C:\Users\hieunk\.gologin\browser\orbita-browser-135\chrome.exe" --user-data-dir="C:\Users\hieunk\AppData\Local\Temp\GoLogin\profiles\6850fd9be54501a0183dab1e" --remote-debugging-port=9222 --donut-pie=undefined --webrtc-ip-handling-policy=default_public_interface_only --component-updater=fast-update,initial-delay=0.1 --disable-features=PrintCompositorLPAC --font-masking-mode=2 --restore-last-session --lang=en-US --disable-encryption
+"C:\Users\Admin\.gologin\browser\orbita-browser-135\chrome.exe" --user-data-dir="C:\Users\Admin\AppData\Local\Temp\GoLogin\profiles\6851a629aad744fcd1ab63dd" --donut-pie=undefined --webrtc-ip-handling-policy=default_public_interface_only --component-updater=fast-update,initial-delay=0.1 --disable-features=PrintCompositorLPAC --font-masking-mode=2 --restore-last-session --remote-debugging-port=9222 --lang=en-US --disable-encrypti --remote-allow-origins=*
