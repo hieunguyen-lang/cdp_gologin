@@ -1,0 +1,84 @@
+Tuyệt, nếu bạn chỉ cần nhận tin nhắn từ Messenger, thì giải pháp nhẹ nhất – _và không vi phạm chính sách nếu chỉ dùng nội bộ** – là:
+
+✅ Dùng Chrome DevTools Protocol (CDP) để lắng DOM tin nhắn mới
+🛠 Cách triển khai:
+1. ✅ Mở Chrome với profile đã đăng nhập Messenger:
+bash
+Copy
+Edit
+chrome.exe ^
+  --remote-debugging-port=9222 ^
+  --user-data-dir="C:\orbita_profiles\messenger_bot" ^
+  --disable-web-security ^
+  https://www.messenger.com/t/<ID_USER_OR_GROUP>
+📌 Bạn có thể dùng Orbita, GoLogin, hoặc Chrome thường — miễn là có --remote-debugging-port.
+
+2. ✅ Python script dùng websocket CDP để theo dõi DOM realtime
+python
+Copy
+Edit
+import websocket
+import json
+import requests
+import time
+
+# Kết nối tới CDP
+version = requests.get("http://localhost:9222/json/version").json()
+ws_url = version["webSocketDebuggerUrl"]
+ws = websocket.create_connection(ws_url)
+
+# Bật theo dõi DOM
+ws.send(json.dumps({"id": 1, "method": "DOM.enable"}))
+ws.send(json.dumps({"id": 2, "method": "Runtime.enable"}))
+ws.send(json.dumps({"id": 3, "method": "DOM.getDocument"}))
+
+# Theo dõi mọi sự kiện DOM
+while True:
+    try:
+        msg = json.loads(ws.recv())
+        if msg.get("method") == "DOM.childNodeInserted":
+            node = msg["params"]["node"]
+            if "text" in node.get("attributes", []):
+                print("💬 Tin nhắn mới DOM:", node)
+        # Hoặc bạn có thể xử lý bằng Runtime.evaluate nếu DOM phức tạp
+    except Exception as e:
+        print("[!] Error:", e)
+        time.sleep(1)
+🔎 Gợi ý nâng cao (nếu muốn tin nhắn rõ ràng hơn):
+Dùng Runtime.evaluate để lấy nội dung:
+
+python
+Copy
+Edit
+ws.send(json.dumps({
+    "id": 100,
+    "method": "Runtime.evaluate",
+    "params": {
+        "expression": """
+            (() => {
+                const msgs = document.querySelectorAll('[data-testid="message-container"]');
+                return [...msgs].map(m => m.innerText).slice(-3);
+            })()
+        """,
+        "returnByValue": True
+    }
+}))
+🎁 Kết quả:
+Bạn sẽ nhận được log tin nhắn mới ngay khi có người nhắn vào cuộc trò chuyện đang mở trên Messenger.com.
+
+🧠 Ghi nhớ:
+Chrome phải giữ mở tab cuộc hội thoại (do DOM chỉ có ở tab đó)
+
+Đây là giải pháp giả lập người dùng, phù hợp crawl nhẹ, nhận tin từ một số người nhất định
+
+Không dùng Graph API do Messenger không hỗ trợ lấy inbox qua đó nếu là tài khoản cá nhân
+
+👉 Nếu bạn cần mình viết một tool cụ thể với GUI hoặc dùng headless, cứ nói rõ — mình có thể build cho bạn nhanh.
+
+
+
+
+
+
+
+
