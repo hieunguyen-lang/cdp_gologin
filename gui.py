@@ -117,37 +117,42 @@ class SimpleTool:
     def run_items(self):
         script = ScriptRI()
         script.connect()
-        while self.items and self.running:
+        success = script.first_run(self.root_id, self.file_path)
+        while self.items and self.running and success:
             item = self.items.pop(0)
             if self.listbox_input.size() > 0:
                 self.listbox_input.delete(0)
-
+            
             if script.run(item, self.root_id,self.file_path):
-                print(f"✅ Đã xử lý: {item}")
-                self.done.append(item)
-                self.done_count += 1
-                self.listbox_done.insert(tk.END, item)
+                if script.click_on_case_link():
+                    print(f"✅ Đã xử lý: {item}")
+                    self.done.append(item)
+                    self.done_count += 1
+                    self.listbox_done.insert(tk.END, item)
 
-                self.label_done_count.config(
-                    text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
-                )
-                self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
-                self.save_state()
+                    self.label_done_count.config(
+                        text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
+                    )
+                    self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
+                    self.save_state()
+                else:
+                    print(f"[❌] Lỗi khi xử lý: {item}")
             else:
                 print(f"[❌] Lỗi khi xử lý: {item}")
-            
 
     def save_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump({
                 "items": self.items,
                 "done": self.done,
-                "count_done": self.done_count
+                "count_done": self.done_count,
+                "file_path": self.file_path,
+                "root_id": self.root_id
             }, f, ensure_ascii=False, indent=2)
 
     def del_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"items": [], "done": [], "count_done": 0}, f, ensure_ascii=False, indent=2)
+            json.dump({"items": [], "done": [], "count_done": 0, "file_path": "", "root_id": ""}, f, ensure_ascii=False, indent=2)
 
     def load_state(self):
         if os.path.exists(STATE_FILE):

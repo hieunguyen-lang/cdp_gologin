@@ -1,8 +1,5 @@
 {
   "items": [
-    "61202500759|PROVIDENCE|6th Division District Court | 20039edc-303e-4d3b-b430-a4e9769812ed",
-    "61202500760|PROVIDENCE|6th Division District Court | a5ddeb58-999f-4b59-ac60-e8ba3f6f093d",
-    "61202500761|PROVIDENCE|6th Division District Court | aa56bb3f-4cd4-488a-9a8a-3b0a70ca58de",
     "61202500763|PROVIDENCE|6th Division District Court | 3b6e3785-9337-4051-a6c3-db27abd7e512",
     "61202500764|PROVIDENCE|6th Division District Court | 1fe9c885-7930-4def-a173-19c711b9a8fb",
     "61202500765|PROVIDENCE|6th Division District Court | 040a911b-12ad-4c92-be38-cdcf232a7efa",
@@ -500,7 +497,12 @@
     "61202501445|PROVIDENCE|6th Division District Court | ff1690be-37f5-4e21-94be-cef2fcd2a183"
   ],
   "done": [
-    "61202500757|PROVIDENCE|6th Division District Court | ede37cd3-21e5-4565-92f8-4c645c8545f5"
+    "61202500757|PROVIDENCE|6th Division District Court | ede37cd3-21e5-4565-92f8-4c645c8545f5",
+    "61202500758|PROVIDENCE|6th Division District Court | ec7a5927-ad1b-4755-a9e4-2861dfc9ba62",
+    "61202500759|PROVIDENCE|6th Division District Court | 20039edc-303e-4d3b-b430-a4e9769812ed",
+    "61202500760|PROVIDENCE|6th Division District Court | a5ddeb58-999f-4b59-ac60-e8ba3f6f093d"
   ],
-  "count_done": 1
+  "count_done": 4,
+  "file_path": "D:/mytool/cdp_gologin/RIJPDF_062025_CASENUMBER_00034_1YR_20250603.xml",
+  "root_id": "a2528729-5398-47e8-9cb3-e1c949ec6611"
 }

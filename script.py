@@ -86,12 +86,13 @@ def write_case_detail_to_file(case_id: str, html_content: str, output_path: str)
 class ScriptRI:
     def __init__(self):
         self.cdp = CDPController(debug_url="http://localhost:9222/json")
+        self.old_tab_id= None  # Biến lưu ID tab cũ
     def connect(self):
         """
         Kết nối đến CDP và gắn vào tab đầu tiên.
         """
         self.cdp._connect()
-    def run(self, lead, root_id,name_file_input):
+    def first_run(self, root_id,name_file_input):
         try:
             #taoh file chứa nội dung
             with open(name_file_input.replace(".xml", "_contents.txt"), "w", encoding="utf-8") as f:
@@ -105,7 +106,7 @@ class ScriptRI:
             #lấy page hiện tại
             old_tabs = requests.get(self.cdp.debug_url).json()
             old_tab_ids = set(tab["id"] for tab in old_tabs if tab.get("type") == "page")
-            old_tab_id = list(old_tab_ids)[0]
+            self.old_tab_id = list(old_tab_ids)[0]
             
             root = self.cdp.get_root_node()["nodeId"]
 
@@ -117,7 +118,12 @@ class ScriptRI:
             time.sleep(1)
             self.cdp.click(node_id_search_smart)
             self.cdp.wait_for_page_load()
-            
+            return True
+        except Exception as e:
+            print(f"[ERROR] Lỗi khi khởi tạo script: {e}")
+            return False
+    def run(self, lead, root_id,name_file_input):
+        try:
             #case_key, case_id  = lead
             case_number,_,_,case_id = lead.strip().split("|")  # Lấy phần sau dấu gạch ngang
             print(f"Case Number: {case_number}, Case ID: {case_id}")
@@ -202,14 +208,7 @@ class ScriptRI:
                 self.cdp.send("Target.closeTarget", {
                     "targetId": new_tab_id
                 })
-                self.cdp.attach_to_tab_by_id(old_tab_id)
-                print("Attached back to old tab:", old_tab_id)
-                node_id_search_smart_2 = self.cdp.wait_for_selector("a#tcControllerLink_0", timeout=20)
-                self.cdp.send("Runtime.evaluate", {
-                    "expression": '''
-                            document.querySelector("a#tcControllerLink_0")?.click();
-                        '''
-                })
+        
                 return True
             else:
                     root = self.cdp.get_root_node()
@@ -232,4 +231,15 @@ class ScriptRI:
             print(f"[ERROR] Lỗi khi xử lý lead {lead}: {e}")
             return False
 
+    def click_on_case_link(self):
+        
+        self.cdp.attach_to_tab_by_id(self.old_tab_id)
+        print("Attached back to old tab:", self.old_tab_id)
+        node_id_search_smart_2 = self.cdp.wait_for_selector("a#tcControllerLink_0", timeout=20)
+        self.cdp.send("Runtime.evaluate", {
+            "expression": '''
+                document.querySelector("a#tcControllerLink_0")?.click();
+            '''
+        })
+        return True
     #self.cdp.wait_for_page_load()
