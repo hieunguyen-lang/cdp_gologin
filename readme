@@ -12,3 +12,6 @@
 
 
 "C:\Users\Admin\.gologin\browser\orbita-browser-135\chrome.exe" --user-data-dir="C:\Users\Admin\AppData\Local\Temp\GoLogin\profiles\6851a629aad744fcd1ab63dd" --donut-pie=undefined --webrtc-ip-handling-policy=default_public_interface_only --component-updater=fast-update,initial-delay=0.1 --disable-features=PrintCompositorLPAC --font-masking-mode=2 --restore-last-session --remote-debugging-port=9222 --lang=en-US --disable-encrypti --remote-allow-origins=*
+
+
+"C:\Users\hieunk\.gologin\browser\orbita-browser-135\chrome.exe" --user-data-dir="C:\Users\hieunk\AppData\Local\Temp\GoLogin\profiles\685215ba3bde6b1d40e37dbd" --donut-pie=undefined --webrtc-ip-handling-policy=default_public_interface_only --component-updater=fast-update,initial-delay=0.1 --disable-features=PrintCompositorLPAC --font-masking-mode=2 --restore-last-session  --remote-debugging-port=9222 --lang=en-US --disable-encrypti --remote-allow-origins=*
