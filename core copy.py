@@ -378,3 +378,143 @@ def write_case_detail_to_file(case_id: str, html_content: str, output_path: str)
         print(f"[✓] Đã ghi {case_id} vào {output_path}")
 
 
+cdp = CDPController(debug_url="http://localhost:9222/json")
+cdp._connect()
+cdp.attach_to_tab(0)  # Gắn vào tab đầu tiên
+# Điều hướng
+cdp.navigate("https://publicportal.courts.ri.gov/PublicPortal/")
+# Đợi trang tải
+cdp.wait_for_page_load()
+#lấy page hiện tại
+old_tabs = requests.get(cdp.debug_url).json()
+old_tab_ids = set(tab["id"] for tab in old_tabs if tab.get("type") == "page")
+old_tab_id = list(old_tab_ids)[0]
+ 
+root = cdp.get_root_node()["nodeId"]
+
+#----------- cliclk vào nút Smart Search  -----------    
+node_id_search_smart = cdp.query_selector(root, "a.portlet-buttons[href='/PublicPortal/Home/Dashboard/29']")
+print("Node ID node_id_search_smart:", node_id_search_smart)
+# Cuộn đến phần tử
+cdp.scroll_into_view("a.portlet-buttons[href='/PublicPortal/Home/Dashboard/29']")
+time.sleep(1)
+cdp.click(node_id_search_smart)
+cdp.wait_for_page_load()
+name_file_input = "RIJPDF_062025_CASENUMBER_00034_1YR_20250603.xml"
+
+root_id, lead_ids = parse_leadlist_xml(name_file_input)
+with open(name_file_input.replace(".xml", "_contents.txt"), "w", encoding="utf-8") as f:
+    f.write(f'HEADER ROW - CompressionType="GZip" - Encoding="base64" - LeadListGuid="{root_id}\n')
+print("Root ID:", root_id)
+for item in lead_ids:
+    case_number, _, _ = item['case_key'].split("|")
+    print(item['id'])
+    #----------- Nhập vào ô search   ----------- 
+    node_id_input_search = cdp.wait_for_selector("input#caseCriteria_SearchCriteria.form-control",timeout=10)
+    #node_id = cdp.query_selector(root, "input#caseCriteria_SearchCriteria.form-control")
+    print("Node ID ô search:", node_id_input_search)
+    # 3. Focus vào ô input
+    cdp.focus(node_id_input_search)
+    # 4. Gõ văn bản như người dùng
+    cdp.clear_input()  # Xoá nội dung cũ nếu có
+    cdp.type_text_like_user(case_number, delay=0.1)
+
+    #----------- cliclk vào nút Summit  -----------    
+    # Chờ cho CAPTCHA được check xong
+    cdp.wait_for_recaptcha_checked(timeout=200)
+    print("✅ CAPTCHA đã được check.")
+
+    node_id_Summit = cdp.wait_for_selector("input#btnSSSubmit.btn.btn-primary.pull-right",timeout=10)
+    #node_id_Summit = cdp.query_selector(root, "input#btnSSSubmit.btn.btn-primary.pull-right")
+    print("Node ID node_id_Summit:", node_id_Summit)
+    #desc = cdp.send("DOM.describeNode", {"nodeId": node_id_Summit})
+    cdp.send("Runtime.evaluate", {
+        "expression": 'document.querySelector("input#btnSSSubmit.btn.btn-primary.pull-right").click();'
+    })
+    cdp.wait_for_page_load()
+
+    #----------- cliclk vào bản ghi  -----------
+    try:    
+        node_id_ban_ghi = cdp.wait_for_selector("a.caseLink")
+    except Exception as e:
+        print(f"[ERROR] Không tìm thấy bản ghi: {e}")
+    print("Node ID node_id_ban_ghi:", node_id_ban_ghi)
+    if node_id_ban_ghi :
+        
+        # Trước khi click, lưu tab cũ
+        old_tabs = requests.get(cdp.debug_url).json()
+        old_ids = set(tab["id"] for tab in old_tabs)
+
+        cdp.send("Runtime.evaluate", {
+            "expression": '''
+                const el = document.querySelector("a.caseLink");
+                if (el) {
+                    const evt = new MouseEvent("click", {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    });
+                    el.dispatchEvent(evt);
+                }
+            '''
+        })
+        time.sleep(2)
+
+        print("Old tab IDs:", old_ids)
+        new_tab_id = cdp.attach_to_new_tab(old_ids)
+        print("attached to new tab")
+        cdp.ensure_tab_ready()
+
+        # res = cdp.send("DOM.getDocument")
+        # root = res["result"]["root"]
+        root = cdp.get_root_node()
+        # Đợi trang load xong
+        cdp.send("Page.enable")
+        
+        # Bước 2: Lấy outerHTML
+        print("Root node ID:", root["nodeId"])
+        res = cdp.send("DOM.getOuterHTML", {
+            "nodeId": root["nodeId"]
+        })
+        # Debug lỗi nếu thiếu key
+        if "outerHTML" not in res:
+            #print("[ERROR] DOM.getOuterHTML failed response:", res)
+        #raise Exception("Could not retrieve outerHTML")
+            html = res["result"]["outerHTML"]
+        else:
+            html = res["outerHTML"]
+        cdp.wait_for_selector("table.roa-table.td-pad-5.ng-scope",timeout=20)
+        cdp.wait_for_selector("div.roa-pad-bottom.roa-event-event",timeout=20)
+        cdp.wait_for_selector("div.roa-event-info-hearing-event", timeout=20)
+        cdp.wait_for_selector("div.roa-pad-bottom.roa-event-bond-setting-history", timeout=20)
+        write_case_detail_to_file(item['id'], html, name_file_input.replace(".xml", "_contents.txt"))
+        cdp.send("Target.closeTarget", {
+            "targetId": new_tab_id
+        })
+        cdp.attach_to_tab_by_id(old_tab_id)
+        print("Attached back to old tab:", old_tab_id)
+        node_id_search_smart_2 = cdp.wait_for_selector("a#tcControllerLink_0", timeout=20)
+        cdp.send("Runtime.evaluate", {
+            "expression": '''
+                document.querySelector("a#tcControllerLink_0")?.click();
+            '''
+        })
+    else:
+        root = cdp.get_root_node()
+        # Bước 2: Lấy outerHTML
+        print("Root node ID:", root["nodeId"])
+        res = cdp.send("DOM.getOuterHTML", {
+            "nodeId": root["nodeId"]
+        })
+        # Debug lỗi nếu thiếu key
+        if "outerHTML" not in res:
+            #print("[ERROR] DOM.getOuterHTML failed response:", res)
+        #raise Exception("Could not retrieve outerHTML")
+            html = res["result"]["outerHTML"]
+        else:
+            html = res["outerHTML"]
+        
+        write_case_detail_to_file(item['id'], html, name_file_input.replace(".xml", "_contents.txt"))
+    
+    #cdp.wait_for_page_load()
+

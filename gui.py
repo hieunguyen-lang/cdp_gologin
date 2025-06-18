@@ -5,7 +5,7 @@ import time
 import json
 import os
 import xml.etree.ElementTree as ET
-
+from script import ScriptRI  
 STATE_FILE = "tool_state.json"
 
 class SimpleTool:
@@ -19,7 +19,7 @@ class SimpleTool:
         self.running = False
         self.thread = None
         self.done_count = 0
-
+        self.file_path = ""
         # ===== Layout =====
         self.left_frame = tk.LabelFrame(root, text="📄 Danh sách cần xử lý", padx=10, pady=10)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -57,23 +57,26 @@ class SimpleTool:
         self.load_state()
 
     def load_file(self):
-        file_path = filedialog.askopenfilename(filetypes=[("XML files", "*.xml")])
-        if not file_path:
+        self.file_path = filedialog.askopenfilename(filetypes=[("XML files", "*.xml")])
+        if not self.file_path:
             return
-
+        
         # Reset toàn bộ trạng thái
         self.pause()
         self.items = []
         self.done = []
         self.done_count = 0
+        self.root_id = None
         self.listbox_input.delete(0, tk.END)
         self.listbox_done.delete(0, tk.END)
 
         # Đọc file XML
-        tree = ET.parse(file_path)
+        tree = ET.parse(self.file_path)
         root = tree.getroot()
 
         ns = {'ns': 'http://risk.regn.net/LeadList'}
+        # Lấy Root ID
+        self.root_id = root.attrib.get("ID")
         leads = root.findall('.//ns:Lead', ns)
 
         for lead in leads:
@@ -81,7 +84,7 @@ class SimpleTool:
             lead_id = lead.attrib.get("ID")
             if case_key and lead_id:
                 self.items.append(f"{case_key} | {lead_id}")
-
+            #print(self.items)
         for item in self.items:
             self.listbox_input.insert(tk.END, item)
 
@@ -112,22 +115,27 @@ class SimpleTool:
         self.running = False
 
     def run_items(self):
+        script = ScriptRI()
+        script.connect()
         while self.items and self.running:
             item = self.items.pop(0)
             if self.listbox_input.size() > 0:
                 self.listbox_input.delete(0)
 
-            time.sleep(1)  # Giả lập xử lý
-            self.done.append(item)
-            self.done_count += 1
-            self.listbox_done.insert(tk.END, item)
+            if script.run(item, self.root_id,self.file_path):
+                print(f"✅ Đã xử lý: {item}")
+                self.done.append(item)
+                self.done_count += 1
+                self.listbox_done.insert(tk.END, item)
 
-            self.label_done_count.config(
-                text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
-            )
-            self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
-
-            self.save_state()
+                self.label_done_count.config(
+                    text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
+                )
+                self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
+                self.save_state()
+            else:
+                print(f"[❌] Lỗi khi xử lý: {item}")
+            
 
     def save_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
