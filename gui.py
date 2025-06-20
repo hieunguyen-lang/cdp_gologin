@@ -58,9 +58,11 @@ class SimpleTool:
 
     def load_file(self):
         self.file_path = filedialog.askopenfilename(filetypes=[("XML files", "*.xml")])
+
         if not self.file_path:
             return
-        
+        file_path_contents = self.file_path.replace(".xml", "_contents.txt")
+        open(file_path_contents, 'w').close()
         # Reset toàn bộ trạng thái
         self.pause()
         self.items = []
