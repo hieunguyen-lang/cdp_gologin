@@ -97,71 +97,55 @@ class ScriptOR:
             #taoh file chứa nội dung
             with open(name_file_input.replace(".xml", "_contents.txt"), "w", encoding="utf-8") as f:
                 f.write(f'HEADER ROW - CompressionType="GZip" - Encoding="base64" - LeadListGuid="{root_id}\n')
-            # Thêm logic chạy script ở đây
-            self.cdp.attach_to_tab(0)  # Gắn vào tab đầu tiên
-            # Điều hướng
-            self.cdp.navigate("https://publicportal.courts.ri.gov/PublicPortal/")
-            # Đợi trang tải
-            self.cdp.wait_for_page_load()
-            #lấy page hiện tại
-            old_tabs = requests.get(self.cdp.debug_url).json()
-            old_tab_ids = set(tab["id"] for tab in old_tabs if tab.get("type") == "page")
-            self.old_tab_id = list(old_tab_ids)[0]
-            
-            root = self.cdp.get_root_node()["nodeId"]
-
-            #----------- cliclk vào nút Smart Search  -----------    
-            node_id_search_smart = self.cdp.query_selector(root, "a.portlet-buttons[href='/PublicPortal/Home/Dashboard/29']")
-            print("Node ID node_id_search_smart:", node_id_search_smart)
-            # Cuộn đến phần tử
-            self.cdp.scroll_into_view("a.portlet-buttons[href='/PublicPortal/Home/Dashboard/29']")
-            time.sleep(1)
-            self.cdp.click(node_id_search_smart)
-            self.cdp.wait_for_page_load()
-            return True
+            return True,""
         except Exception as e:
             print(f"[ERROR] Lỗi khi khởi tạo script: {e}")
-            return False
-    def run(self, lead, root_id,name_file_input):
+            return False,f"[ERROR] Lỗi khi khởi tạo script: {e}"
+        
+    def run(self, lead,name_file_input):
         try:
+             # Thêm logic chạy script ở đây
+            self.cdp.attach_to_tab(0)  # Gắn vào tab đầu tiên
+            # Điều hướng
+            self.cdp.navigate("https://myeclerk.myorangeclerk.com/Cases/Search")
+            # Đợi trang tải
+            self.cdp.wait_for_page_load()
+            
             #case_key, case_id  = lead
             case_number,_,_,case_id = lead.strip().split("|")  # Lấy phần sau dấu gạch ngang
             print(f"Case Number: {case_number}, Case ID: {case_id}")
-
-            #----------- Nhập vào ô search   ----------- 
-            node_id_input_search = self.cdp.wait_for_selector("input#caseCriteria_SearchCriteria.form-control",timeout=10)
-            #node_id = self.cdp.query_selector(root, "input#caseCriteria_SearchCriteria.form-control")
-            print("Node ID ô search:", node_id_input_search)
-            # 3. Focus vào ô input
-            self.cdp.focus(node_id_input_search)
-            # 4. Gõ văn bản như người dùng
-            self.cdp.clear_input()  # Xoá nội dung cũ nếu có
-            self.cdp.type_text_like_user(case_number, delay=0.1)
-
-            #----------- cliclk vào nút Summit  -----------    
-            # Chờ cho CAPTCHA được check xong
+            try:
+                print("----------- Nhập vào ô search   -----------") 
+                node_id_input_search = self.cdp.wait_for_selector("input#caseNumber.form-control.text-box.single-line",timeout=10)
+                print("Node ID ô search:", node_id_input_search)
+                # 3. Focus vào ô input
+                self.cdp.focus(node_id_input_search)
+                # 4. Gõ văn bản như người dùng
+                self.cdp.clear_input()  # Xoá nội dung cũ nếu có
+                self.cdp.type_text_like_user(case_number, delay=0.1)
+            except Exception as e:
+                return False
+            print("------------Chờ cho CAPTCHA được check xong-----------")
             self.cdp.wait_for_recaptcha_checked(timeout=200)
             print("✅ CAPTCHA đã được check.")
 
-            node_id_Summit = self.cdp.wait_for_selector("input#btnSSSubmit.btn.btn-primary.pull-right",timeout=10)
-            #node_id_Summit = self.cdp.query_selector(root, "input#btnSSSubmit.btn.btn-primary.pull-right")
-            print("Node ID node_id_Summit:", node_id_Summit)
+            print("------------Click nút search-----------")
+            node_id_Search = self.cdp.wait_for_selector("button#caseSearch.btn.btn-primary.col-md-4",timeout=10)
+            print("Node ID node_id_Search:", node_id_Search)
             #desc = self.cdp.send("DOM.describeNode", {"nodeId": node_id_Summit})
             self.cdp.send("Runtime.evaluate", {
-                "expression": 'document.querySelector("input#btnSSSubmit.btn.btn-primary.pull-right").click();'
+                "expression": 'document.querySelector("button#caseSearch.btn.btn-primary.col-md-4").click();'
             })
             self.cdp.wait_for_page_load()
 
-            #----------- cliclk vào bản ghi  -----------
+            print("----------- Kiểm tra xem có bản ghi nào không  -----------")
             try:    
-                node_id_ban_ghi = self.cdp.wait_for_selector("a.caseLink")
+                node_id_ban_ghi = self.cdp.wait_for_selector("td.dataTables_empty",timeout=10)
+       
             except Exception as e:
                 print(f"[ERROR] Không tìm thấy bản ghi: {e}")
-            print("Node ID node_id_ban_ghi:", node_id_ban_ghi)
-            if node_id_ban_ghi :
-                # Trước khi click, lưu tab cũ
-                old_tabs = requests.get(self.cdp.debug_url).json()
-                old_ids = set(tab["id"] for tab in old_tabs)
+            print(node_id_ban_ghi)
+            if not node_id_ban_ghi:
                 self.cdp.send("Runtime.evaluate", {
                         "expression": '''
                             const el = document.querySelector("a.caseLink");
@@ -177,13 +161,7 @@ class ScriptOR:
                 })
                 time.sleep(2)
 
-                print("Old tab IDs:", old_ids)
-                new_tab_id = self.cdp.attach_to_new_tab(old_ids)
-                print("attached to new tab")
-                self.cdp.ensure_tab_ready()
-
-                # res = self.cdp.send("DOM.getDocument")
-                # root = res["result"]["root"]
+            
                 root = self.cdp.get_root_node()
                 # Đợi trang load xong
                 self.cdp.send("Page.enable")
@@ -205,15 +183,11 @@ class ScriptOR:
                 self.cdp.wait_for_selector("div.roa-event-info-hearing-event", timeout=20)
                 self.cdp.wait_for_selector("div.roa-pad-bottom.roa-event-bond-setting-history", timeout=20)
                 write_case_detail_to_file(case_id, html, name_file_input.replace(".xml", "_contents.txt"))
-                self.cdp.send("Target.closeTarget", {
-                    "targetId": new_tab_id
-                })
-        
+                
                 return True
             else:
+                    print("----------- Lấy html không có dữ liệu  -----------")
                     root = self.cdp.get_root_node()
-                    # Bước 2: Lấy outerHTML
-                    print("Root node ID:", root["nodeId"])
                     res = self.cdp.send("DOM.getOuterHTML", {
                         "nodeId": root["nodeId"]
                     })
@@ -224,22 +198,11 @@ class ScriptOR:
                         html = res["result"]["outerHTML"]
                     else:
                         html = res["outerHTML"]
-                    
                     write_case_detail_to_file(case_id, html, name_file_input.replace(".xml", "_contents.txt"))
                     return True
         except Exception as e:
             print(f"[ERROR] Lỗi khi xử lý lead {lead}: {e}")
             return False
 
-    def click_on_case_link(self):
-        
-        self.cdp.attach_to_tab_by_id(self.old_tab_id)
-        print("Attached back to old tab:", self.old_tab_id)
-        node_id_search_smart_2 = self.cdp.wait_for_selector("a#tcControllerLink_0", timeout=20)
-        self.cdp.send("Runtime.evaluate", {
-            "expression": '''
-                document.querySelector("a#tcControllerLink_0")?.click();
-            '''
-        })
-        return True
+    
     #self.cdp.wait_for_page_load()

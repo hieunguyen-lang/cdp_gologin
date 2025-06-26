@@ -8,20 +8,22 @@ import subprocess
 import xml.etree.ElementTree as ET
 from scripts.script_ri import ScriptRI  
 from scripts.script_or import ScriptOR  # Giả sử bạn có một script OR tương tự
+from helpers.helper import Helper
 STATE_FILE = "tool_state.json"
-
+helper = Helper()
 class SimpleTool:
     def __init__(self, root):
         self.root = root
         self.root.geometry("1000x800")
         self.root.title("🧰 Hieu Nguyen Tool")
-
+        
         self.items = []
         self.done = []
         self.running = False
         self.thread = None
         self.done_count = 0
         self.file_path = ""
+        self.text_command_load = ""
         # ===== Layout =====
         self.left_frame = tk.LabelFrame(root, text="📄 Danh sách cần xử lý", padx=10, pady=10)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -33,7 +35,6 @@ class SimpleTool:
         self.command_frame.pack(fill=tk.X, pady=(10, 0))
 
         self.text_command = tk.Text(self.command_frame, height=10, width=80, font=("Arial", 8))
-        self.text_command.insert(tk.END, r'"C:\Users\hieunk\.gologin\browser\orbita-browser-135\chrome.exe" --user-data-dir="C:\Users\hieunk\AppData\Local\Temp\GoLogin\profiles\685bab1211acc7e2ace08faf" --donut-pie=undefined --webrtc-ip-handling-policy=default_public_interface_only --component-updater=fast-update,initial-delay=0.1 --disable-features=PrintCompositorLPAC --font-masking-mode=2 --restore-last-session --host-resolver-rules="MAP * 0.0.0.0 , EXCLUDE geo.floppydata.com" --lang=en-US --disable-encryption --gologing_proxy_server_username=j6uhkrNQ9jfkZ4Sb --gologing_proxy_server_password=pzRmzs81RkVq32VY --flag-switches-begin --flag-switches-end')
         self.text_command.pack()
 
         # ===== Bên trái =====
@@ -43,7 +44,7 @@ class SimpleTool:
         tk.Button(btn_frame, text="📂 Chọn File XML", command=self.load_file).pack(side=tk.LEFT, padx=(0, 5))
 
         self.script_type = tk.StringVar()
-        self.script_type.set("RI CRAWL")  # mặc định
+        self.script_type.set("OR CRAWL")  # mặc định
         script_options = ["RI CRAWL", "OR CRAWL", "Other2"]  # danh sách script hỗ trợ
         tk.OptionMenu(btn_frame, self.script_type, *script_options).pack(side=tk.LEFT, padx=(0, 5))
 
@@ -101,9 +102,10 @@ class SimpleTool:
         self.done = []
         self.done_count = 0
         self.root_id = None
+        self.text_command_load = ""
         self.listbox_input.delete(0, tk.END)
         self.listbox_done.delete(0, tk.END)
-
+        self.text_command.delete("1.0", tk.END)
         # Đọc file XML
         tree = ET.parse(self.file_path)
         root = tree.getroot()
@@ -129,7 +131,7 @@ class SimpleTool:
     def update_listboxes(self):
         self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
         self.label_done_count.config(text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}")
-
+        self.text_command.insert(tk.END, self.text_command_load)
         self.listbox_input.delete(0, tk.END)
         for item in self.items:
             self.listbox_input.insert(tk.END, item)
@@ -137,9 +139,24 @@ class SimpleTool:
         self.listbox_done.delete(0, tk.END)
         for item in self.done:
             self.listbox_done.insert(tk.END, item)
-
+    
     def start_thread(self):
+        if not self.file_path:
+            messagebox.showerror("Lỗi", "Vui lòng nhập file!")
+            return
+        self.text_command_load=self.text_command.get("1.0", tk.END).strip()
+        if self.text_command_load =="":
+            print(self.text_command_load)
+            messagebox.showerror("Lỗi", "Vui lòng nhập lệnh gologin!")
+            return
         if not self.running:
+            text = helper.ensure_remote_debugging_flags(self.text_command.get("1.0", tk.END).strip()) 
+            try:
+                subprocess.Popen(text, shell=True)
+                print("Đã chạy lệnh.")
+            except Exception as e:
+                messagebox.showerror("Lỗi","Lỗi khi khởi động chorme")
+                print(f"Lỗi khi chạy lệnh: {e}")
             self.running = True
             script_type = self.script_type.get()
             if script_type == "RI CRAWL":
@@ -185,16 +202,21 @@ class SimpleTool:
                 print(f"[❌] Lỗi khi xử lý: {item}")
 
     def run_items_or(self):
-        script = ScriptRI()
-        script.connect()
-        success = script.first_run(self.root_id, self.file_path)
-        while self.items and self.running and success:
+        script_or = ScriptOR()
+        try:
+            script_or.connect()
+        except:
+            messagebox.showerror("Lỗi", "Kết nối đến chrome vui lòng tắt chorme bấm tạm dừng rồi chạy lại!")
+            return
+        success,mess = script_or.first_run(self.root_id, self.file_path)
+        if success == False:
+            messagebox.showerror("Lỗi", mess)
+            return
+        while self.items and self.running:
             item = self.items.pop(0)
             if self.listbox_input.size() > 0:
                 self.listbox_input.delete(0)
-            if script.run(item, self.root_id,self.file_path):
-                if script.click_on_case_link():
-
+            if script_or.run(item,self.file_path):
                     print(f"✅ Đã xử lý: {item}")
                     self.done.append(item)
                     self.done_count += 1
@@ -205,8 +227,6 @@ class SimpleTool:
                     )
                     self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
                     self.save_state()
-                else:
-                    print(f"[❌] Lỗi khi xử lý: {item}")
             else:
                 print(f"[❌] Lỗi khi xử lý: {item}")
 
@@ -218,12 +238,13 @@ class SimpleTool:
                 "done": self.done,
                 "count_done": self.done_count,
                 "file_path": self.file_path,
-                "root_id": self.root_id
+                "root_id": self.root_id,
+                "text_command_load": self.text_command.get("1.0", tk.END).strip()
             }, f, ensure_ascii=False, indent=2)
 
     def del_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"items": [], "done": [], "count_done": 0, "file_path": "", "root_id": ""}, f, ensure_ascii=False, indent=2)
+            json.dump({"items": [], "done": [], "count_done": 0, "file_path": "", "root_id": "","text_command_load":""}, f, ensure_ascii=False, indent=2)
 
     def load_state(self):
         if os.path.exists(STATE_FILE):
@@ -231,7 +252,10 @@ class SimpleTool:
                 data = json.load(f)
                 self.items = data.get("items", [])
                 self.done = data.get("done", [])
+                self.root_id=data.get("root_id","")
+                self.file_path = data.get("file_path","")
                 self.done_count = data.get("count_done", 0)
+                self.text_command_load=data.get("text_command_load","")
                 self.update_listboxes()
 
 # ===== Khởi chạy =====
