@@ -73,13 +73,14 @@ def write_case_detail_to_file(case_id: str, html_content: str, output_path: str)
     """
     Nén HTML, đóng gói, base64, rồi ghi ra file theo định dạng: id|thời_gian|base64
     """
+    print("Nén HTML, đóng gói, base64, rồi ghi ra file theo định dạng: id|thời_gian|base64")
     base64_data = encode_html_to_base64_gzip_xml(html_content)
 
     # Thời gian crawl dạng giờ Việt Nam AM/PM như bên JS
-    crawl_time = datetime.now().strftime("%m/%d/%Y, %I:%M:%S %p")  # giống JS: toLocaleString('en-US', { hour12: true })
+    crawl_time = datetime.now().strftime("%m/%d/%Y %I:%M:%S %p")  # giống JS: toLocaleString('en-US', { hour12: true })
 
     with open(output_path, "a", encoding="utf-8") as f:
-        f.write(f"{case_id}|{crawl_time}|{base64_data}\n")
+        f.write(f"{case_id.strip()}|{crawl_time.strip()}|{base64_data.strip()}\n")
         print(f"[✓] Đã ghi {case_id} vào {output_path}")
 
 
@@ -92,17 +93,29 @@ class ScriptOR:
         Kết nối đến CDP và gắn vào tab đầu tiên.
         """
         self.cdp._connect()
+    def disconnect(self):
+        """
+        Đóng kết nối CDP nếu đang mở.
+        """
+        if hasattr(self.cdp, "ws") and self.cdp.ws:
+            try:
+                self.cdp.ws.close()
+                print("[CDP] Kết nối đã được đóng.")
+            except Exception as e:
+                print(f"[CDP] Lỗi khi đóng kết nối: {e}")
+
     def first_run(self, root_id,name_file_input):
         try:
             #taoh file chứa nội dung
             with open(name_file_input.replace(".xml", "_contents.txt"), "w", encoding="utf-8") as f:
-                f.write(f'HEADER ROW - CompressionType="GZip" - Encoding="base64" - LeadListGuid="{root_id}\n')
+                f.write(f'HEADER ROW - CompressionType="GZip" - Encoding="base64" - LeadListGuid="{root_id}"')
             return True,""
         except Exception as e:
             print(f"[ERROR] Lỗi khi khởi tạo script: {e}")
             return False,f"[ERROR] Lỗi khi khởi tạo script: {e}"
         
     def run(self, lead,name_file_input):
+        
         try:
              # Thêm logic chạy script ở đây
             self.cdp.attach_to_tab(0)  # Gắn vào tab đầu tiên
@@ -112,8 +125,11 @@ class ScriptOR:
             self.cdp.wait_for_page_load()
             
             #case_key, case_id  = lead
-            case_number,_,_,case_id = lead.strip().split("|")  # Lấy phần sau dấu gạch ngang
+            case_number,case_id = lead.strip().split("|")  # Lấy phần sau dấu gạch ngang
             print(f"Case Number: {case_number}, Case ID: {case_id}")
+            print("------------Chờ cho CAPTCHA được check xong-----------")
+            self.cdp.wait_for_recaptcha_checked(timeout=200)
+            print("✅ CAPTCHA đã được check.")
             try:
                 print("----------- Nhập vào ô search   -----------") 
                 node_id_input_search = self.cdp.wait_for_selector("input#caseNumber.form-control.text-box.single-line",timeout=10)
@@ -125,9 +141,7 @@ class ScriptOR:
                 self.cdp.type_text_like_user(case_number, delay=0.1)
             except Exception as e:
                 return False
-            print("------------Chờ cho CAPTCHA được check xong-----------")
-            self.cdp.wait_for_recaptcha_checked(timeout=200)
-            print("✅ CAPTCHA đã được check.")
+            
 
             print("------------Click nút search-----------")
             node_id_Search = self.cdp.wait_for_selector("button#caseSearch.btn.btn-primary.col-md-4",timeout=10)
@@ -140,12 +154,12 @@ class ScriptOR:
 
             print("----------- Kiểm tra xem có bản ghi nào không  -----------")
             try:    
-                node_id_ban_ghi = self.cdp.wait_for_selector("td.dataTables_empty",timeout=10)
-       
+                #node_id_ban_ghi = self.cdp.wait_for_selector("td.dataTables_empty",timeout=10)
+                node_id_ban_ghi = self.cdp.wait_for_selector("a.caseLink")
             except Exception as e:
                 print(f"[ERROR] Không tìm thấy bản ghi: {e}")
             print(node_id_ban_ghi)
-            if not node_id_ban_ghi:
+            if  node_id_ban_ghi:
                 self.cdp.send("Runtime.evaluate", {
                         "expression": '''
                             const el = document.querySelector("a.caseLink");
@@ -159,9 +173,9 @@ class ScriptOR:
                             }
                         '''
                 })
-                time.sleep(2)
+                time.sleep(1)
+                self.cdp.wait_for_page_load()
 
-            
                 root = self.cdp.get_root_node()
                 # Đợi trang load xong
                 self.cdp.send("Page.enable")
@@ -178,10 +192,7 @@ class ScriptOR:
                     html = res["result"]["outerHTML"]
                 else:
                     html = res["outerHTML"]
-                self.cdp.wait_for_selector("table.roa-table.td-pad-5.ng-scope",timeout=20)
-                self.cdp.wait_for_selector("div.roa-pad-bottom.roa-event-event",timeout=20)
-                self.cdp.wait_for_selector("div.roa-event-info-hearing-event", timeout=20)
-                self.cdp.wait_for_selector("div.roa-pad-bottom.roa-event-bond-setting-history", timeout=20)
+                
                 write_case_detail_to_file(case_id, html, name_file_input.replace(".xml", "_contents.txt"))
                 
                 return True
@@ -198,6 +209,7 @@ class ScriptOR:
                         html = res["result"]["outerHTML"]
                     else:
                         html = res["outerHTML"]
+                    
                     write_case_detail_to_file(case_id, html, name_file_input.replace(".xml", "_contents.txt"))
                     return True
         except Exception as e:

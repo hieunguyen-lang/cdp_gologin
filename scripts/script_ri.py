@@ -92,6 +92,25 @@ class ScriptRI:
         Kết nối đến CDP và gắn vào tab đầu tiên.
         """
         self.cdp._connect()
+    def close(self):
+        self.cdp.send("Browser.close")
+    def clear_cookie(self):
+        # 🧹 XÓA COOKIE TRONG 1 GIỜ SAU KHI XONG
+        origin = self.cdp.send("Runtime.evaluate", {
+                    "expression": "location.origin",
+                    "returnByValue": True
+                })["result"]["value"]
+        self.cdp.send("BrowsingData.remove", {
+                        "origin": origin,
+                        "dataToRemove": {
+                            "cookies": True,
+                            "localStorage": True,
+                            "cache": True
+                        },
+                        "options": {
+                            "since": int(time.time() - 3600) * 1000
+                        }
+        })
     def first_run(self, root_id,name_file_input):
         try:
             #taoh file chứa nội dung

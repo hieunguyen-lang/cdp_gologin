@@ -24,6 +24,7 @@ class SimpleTool:
         self.done_count = 0
         self.file_path = ""
         self.text_command_load = ""
+        self.is_continue =True
         # ===== Layout =====
         self.left_frame = tk.LabelFrame(root, text="📄 Danh sách cần xử lý", padx=10, pady=10)
         self.left_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -48,8 +49,7 @@ class SimpleTool:
         script_options = ["RI CRAWL", "OR CRAWL", "Other2"]  # danh sách script hỗ trợ
         tk.OptionMenu(btn_frame, self.script_type, *script_options).pack(side=tk.LEFT, padx=(0, 5))
 
-        tk.Button(btn_frame, text="▶️ Chạy", command=self.start_thread).pack(side=tk.LEFT, padx=(0, 5))
-        
+        tk.Button(btn_frame, text="❌ Chạy", command=self.start_thread).pack(side=tk.LEFT, padx=(0, 5))
 
         tk.Button(btn_frame, text="⏸ Tạm dừng", command=self.pause).pack(side=tk.LEFT, padx=(0, 5))
 
@@ -102,6 +102,7 @@ class SimpleTool:
         self.done = []
         self.done_count = 0
         self.root_id = None
+        self.is_continue = False
         self.text_command_load = ""
         self.listbox_input.delete(0, tk.END)
         self.listbox_done.delete(0, tk.END)
@@ -141,9 +142,11 @@ class SimpleTool:
             self.listbox_done.insert(tk.END, item)
     
     def start_thread(self):
+        print(self.is_continue)
         if not self.file_path:
             messagebox.showerror("Lỗi", "Vui lòng nhập file!")
             return
+        
         self.text_command_load=self.text_command.get("1.0", tk.END).strip()
         if self.text_command_load =="":
             print(self.text_command_load)
@@ -178,6 +181,7 @@ class SimpleTool:
     def run_items_ri(self):
         script = ScriptRI()
         script.connect()
+        time.sleep(3)
         success = script.first_run(self.root_id, self.file_path)
         while self.items and self.running and success:
             item = self.items.pop(0)
@@ -195,6 +199,7 @@ class SimpleTool:
                         text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
                     )
                     self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
+                    script.clear_cookie()
                     self.save_state()
                 else:
                     print(f"[❌] Lỗi khi xử lý: {item}")
@@ -208,10 +213,17 @@ class SimpleTool:
         except:
             messagebox.showerror("Lỗi", "Kết nối đến chrome vui lòng tắt chorme bấm tạm dừng rồi chạy lại!")
             return
-        success,mess = script_or.first_run(self.root_id, self.file_path)
-        if success == False:
-            messagebox.showerror("Lỗi", mess)
-            return
+        print(self.is_continue)
+        if self.is_continue != True:
+            print("self.is_continue")
+            success,mess = script_or.first_run(self.root_id, self.file_path)
+            if success == False:
+                messagebox.showerror("Lỗi", mess)
+                return
+            self.is_continue =True
+        
+            
+            
         while self.items and self.running:
             item = self.items.pop(0)
             if self.listbox_input.size() > 0:
@@ -256,6 +268,7 @@ class SimpleTool:
                 self.file_path = data.get("file_path","")
                 self.done_count = data.get("count_done", 0)
                 self.text_command_load=data.get("text_command_load","")
+                
                 self.update_listboxes()
 
 # ===== Khởi chạy =====
