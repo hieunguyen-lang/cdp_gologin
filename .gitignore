@@ -1,0 +1,7 @@
+.env
+.your-creds.json
+# Bỏ qua file .pyc
+*.pyc
+
+# Bỏ qua thư mục __pycache__
+__pycache__/
