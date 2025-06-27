@@ -20,7 +20,7 @@ class Helper:
             command += " --remote-allow-origins=*"
 
         # Đảm bảo có --load-extension (nếu chưa)
-        if "--load-extension" not in command and extension_path:
-            command += f' --load-extension="{extension_path}"'
+        # if "--load-extension" not in command and extension_path:
+        #     command += f' --load-extension="{extension_path}"'
         
         return command

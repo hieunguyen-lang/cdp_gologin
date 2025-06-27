@@ -255,7 +255,10 @@ class CDPController:
 
             except Exception as e:
                 print(f"[x] Lỗi khi gọi grecaptcha.getResponse(): {e}")
-
+                if str(e) =="[WinError 10053] An established connection was aborted by the software in your host machine":
+                    return False
+                if str(e) == "socket is already closed.":
+                    return False
             time.sleep(poll_interval)
 
         raise TimeoutError("Không phát hiện CAPTCHA được tick trong thời gian chờ.")

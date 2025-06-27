@@ -49,9 +49,9 @@ class SimpleTool:
         script_options = ["RI CRAWL", "OR CRAWL", "Other2"]  # danh sách script hỗ trợ
         tk.OptionMenu(btn_frame, self.script_type, *script_options).pack(side=tk.LEFT, padx=(0, 5))
 
-        tk.Button(btn_frame, text="❌ Chạy", command=self.start_thread).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(btn_frame, text="Chạy", command=self.start_thread).pack(side=tk.LEFT, padx=(0, 5))
 
-        tk.Button(btn_frame, text="⏸ Tạm dừng", command=self.pause).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Button(btn_frame, text="Dừng", command=self.pause).pack(side=tk.LEFT, padx=(0, 5))
 
         tk.Button(btn_frame, text="💾 Lưu", command=self.save_state).pack(side=tk.LEFT)
 
@@ -73,8 +73,24 @@ class SimpleTool:
         done_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.listbox_done.config(yscrollcommand=done_scroll.set)
 
+        # Gắn sự kiện tắt cửa sổ
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
         # Load trạng thái nếu có
         self.load_state()
+
+    def on_close(self):
+        # Gọi hàm kill chrome ở đây
+        self.kill_chrome()
+        self.root.destroy()  # Đóng cửa sổ
+
+    def kill_chrome(self):
+        # Kill tất cả các tiến trình Chrome và Chromedriver
+        try:
+            # Với Windows:
+            subprocess.call('taskkill /F /IM chrome.exe /T', shell=True)
+            subprocess.call('taskkill /F /IM chromedriver.exe /T', shell=True)
+        except Exception as e:
+            print("Lỗi khi kill chrome:", e)
     def launch_browser(self):
         cmd = self.text_command.get("1.0", tk.END).strip()
 
@@ -177,7 +193,7 @@ class SimpleTool:
 
     def pause(self):
         self.running = False
-
+        self.kill_chrome()
     def run_items_ri(self):
         script = ScriptRI()
         script.connect()
@@ -196,9 +212,9 @@ class SimpleTool:
                     self.listbox_done.insert(tk.END, item)
 
                     self.label_done_count.config(
-                        text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
+                        text=f"Đã xử lý: {self.done_count} / {len(self.items)}"
                     )
-                    self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
+                    self.label_input_count.config(text=f"Tổng: {len(self.items)}")
                     script.clear_cookie()
                     self.save_state()
                 else:
@@ -223,11 +239,9 @@ class SimpleTool:
             self.is_continue =True
         
             
-            
         while self.items and self.running:
-            item = self.items.pop(0)
-            if self.listbox_input.size() > 0:
-                self.listbox_input.delete(0)
+            item = self.items[0]
+            
             if script_or.run(item,self.file_path):
                     print(f"✅ Đã xử lý: {item}")
                     self.done.append(item)
@@ -235,12 +249,18 @@ class SimpleTool:
                     self.listbox_done.insert(tk.END, item)
 
                     self.label_done_count.config(
-                        text=f"Đã xử lý: {self.done_count} / {len(self.items) + len(self.done)}"
+                        text=f"Đã xử lý: {self.done_count} / {len(self.items)}"
                     )
-                    self.label_input_count.config(text=f"Tổng: {len(self.items) + len(self.done)}")
-                    self.save_state()
+                    self.label_input_count.config(text=f"Tổng: {len(self.items)}")
+                    del self.items[0]
+                    if self.listbox_input.size() > 0:
+                        self.listbox_input.delete(0)
+                    self.save_state()   
+                       
             else:
                 print(f"[❌] Lỗi khi xử lý: {item}")
+                #self.save_state()  
+                return
 
 
     def save_state(self):

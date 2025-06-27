@@ -128,7 +128,10 @@ class ScriptOR:
             case_number,case_id = lead.strip().split("|")  # Lấy phần sau dấu gạch ngang
             print(f"Case Number: {case_number}, Case ID: {case_id}")
             print("------------Chờ cho CAPTCHA được check xong-----------")
-            self.cdp.wait_for_recaptcha_checked(timeout=200)
+            
+            check =self.cdp.wait_for_recaptcha_checked(timeout=200)
+            if not check:
+                return False
             print("✅ CAPTCHA đã được check.")
             try:
                 print("----------- Nhập vào ô search   -----------") 
