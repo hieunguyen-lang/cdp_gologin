@@ -9,37 +9,6 @@ import gzip
 import base64
 from datetime import datetime
 from core import CDPController
-def parse_leadlist_xml(xml_path_or_string, from_string=False):
-    """
-    Đọc XML từ file hoặc chuỗi và trích xuất ID của Root cùng các Lead (ID, CaseKey).
-
-    Args:
-        xml_path_or_string (str): Đường dẫn file XML hoặc nội dung XML.
-        from_string (bool): True nếu là chuỗi XML.
-
-    Returns:
-        tuple: (root_id, list_of_leads), trong đó list_of_leads là list dicts có ID và CaseKey.
-    """
-    # Load XML
-    if from_string:
-        tree = ET.ElementTree(ET.fromstring(xml_path_or_string))
-    else:
-        tree = ET.parse(xml_path_or_string)
-
-    root = tree.getroot()
-    ns = {'ns': 'http://risk.regn.net/LeadList'}
-
-    # Lấy Root ID
-    root_id = root.attrib.get("ID")
-
-    # Lấy danh sách Lead
-    leads = []
-    for lead in root.findall(".//ns:Lead", namespaces=ns):
-        lead_id = lead.attrib.get("ID")
-        case_key = lead.attrib.get("CaseKey")
-        leads.append({"id": lead_id, "case_key": case_key})
-
-    return root_id, leads
 
 def encode_html_to_base64_gzip_xml(html: str, *, uri=None, timestamp=None, other_tags='') -> str:
     """

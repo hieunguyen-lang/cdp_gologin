@@ -1,4 +1,5 @@
 import re
+from math import ceil
 
 class Helper:
     def ensure_remote_debugging_flags(self, command: str, port: int = 9222, extension_path: str = r'D:\casecrawl\my_extenstion') -> str:
@@ -24,3 +25,11 @@ class Helper:
         #     command += f' --load-extension="{extension_path}"'
         
         return command
+    
+    def split_items(self, data, n=5):
+        from math import ceil
+        length = len(data)
+        chunk_size = ceil(length / n)
+        chunks = [data[i:i + chunk_size] for i in range(0, length, chunk_size)]
+        for idx in range(1, 6):
+            setattr(self, f"item{idx}", chunks[idx - 1] if idx <= len(chunks) else [])

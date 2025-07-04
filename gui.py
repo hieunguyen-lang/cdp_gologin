@@ -7,8 +7,13 @@ import os
 import subprocess
 import xml.etree.ElementTree as ET
 from scripts.script_ri import ScriptRI  
-from scripts.script_or import ScriptOR  # Giả sử bạn có một script OR tương tự
+from scripts.script_or import ScriptOR
+from scripts.script_or_multi_threads import ScriptOR_multi   # Giả sử bạn có một script OR tương tự
 from helpers.helper import Helper
+import threading
+import queue
+# Hàng đợi dùng chung
+write_queue = queue.Queue()
 STATE_FILE = "tool_state.json"
 helper = Helper()
 class SimpleTool:
@@ -18,6 +23,11 @@ class SimpleTool:
         self.root.title("🧰 Hieu Nguyen Tool")
         
         self.items = []
+        self.items1 = []
+        self.items2 = []
+        self.items3 = []
+        self.items4 = []
+        self.items5 = []
         self.done = []
         self.running = False
         self.thread = None
@@ -45,8 +55,8 @@ class SimpleTool:
         tk.Button(btn_frame, text="📂 Chọn File XML", command=self.load_file).pack(side=tk.LEFT, padx=(0, 5))
 
         self.script_type = tk.StringVar()
-        self.script_type.set("OR CRAWL")  # mặc định
-        script_options = ["RI CRAWL", "OR CRAWL", "Other2"]  # danh sách script hỗ trợ
+        self.script_type.set("OR CRAWL MULTI")  # mặc định
+        script_options = ["RI CRAWL", "OR CRAWL", "OR CRAWL MULTI"]  # danh sách script hỗ trợ
         tk.OptionMenu(btn_frame, self.script_type, *script_options).pack(side=tk.LEFT, padx=(0, 5))
 
         tk.Button(btn_frame, text="Chạy", command=self.start_thread).pack(side=tk.LEFT, padx=(0, 5))
@@ -115,6 +125,11 @@ class SimpleTool:
         # Reset toàn bộ trạng thái
         self.pause()
         self.items = []
+        self.items1 = []
+        self.items2 = []
+        self.items3 = []
+        self.items4 = []
+        self.items5 = []
         self.done = []
         self.done_count = 0
         self.root_id = None
@@ -140,7 +155,12 @@ class SimpleTool:
             #print(self.items)
         for item in self.items:
             self.listbox_input.insert(tk.END, item)
-
+        helper.split_items(self.items, n=5)
+        self.items1 = helper.item1
+        self.items2 = helper.item2
+        self.items3 = helper.item3
+        self.items4 = helper.item4
+        self.items5 = helper.item5
         self.label_input_count.config(text=f"Tổng: {len(self.items)}")
         self.label_done_count.config(text=f"Đã xử lý: 0 / {len(self.items)}")
         self.del_state()
@@ -182,6 +202,8 @@ class SimpleTool:
                 target_func = self.run_items_ri
             elif script_type == "OR CRAWL":
                 target_func = self.run_items_or
+            elif script_type == "OR CRAWL MULTI":
+                target_func = self.run_items_or_multi
             else:
                 messagebox.showerror("Lỗi", f"Không hỗ trợ script: {script_type}")
                 return
@@ -261,12 +283,79 @@ class SimpleTool:
                 print(f"[❌] Lỗi khi xử lý: {item}")
                 #self.save_state()  
                 return
+    def handle_profile(self,index, items):
+        print(f"🧑‍💻 Xử lý profile {index} với {len(items)} item(s)")
 
+        scripor_multi = ScriptOR_multi(r"C:\Users\hieunk\Documents\hieunk-project\cdp_gologin\Profile {index}")
+        if self.is_continue != True:
+            print("self.is_continue")
+            success,mess = scripor_multi.first_run(self.root_id, self.file_path)
+            if success == False:
+                messagebox.showerror("Lỗi", mess)
+                return
+            self.is_continue =True
+        while item and self.running:
+            item = items[0]
+            res, data =scripor_multi.run(item)
+            if res:
+                    write_queue.put(data)
+                    print(f"✅ Đã xử lý: {item}")
+                    self.done.append(item)
+                    self.done_count += 1
+                    self.listbox_done.insert(tk.END, item)
 
+                    self.label_done_count.config(
+                        text=f"Đã xử lý: {self.done_count} / {len(items)}"
+                    )
+                    self.label_input_count.config(text=f"Tổng: {len(items)}")
+                    del items[0]
+                    if self.listbox_input.size() > 0:
+                        self.listbox_input.delete(0)
+                    self.save_state()   
+                       
+            else:
+                print(f"[❌] Lỗi khi xử lý: {item}")
+                #self.save_state()  
+                return
+    def writer_thread_func(self):
+        output = self.file_path.replace(".xml", "_contents.txt")
+        with open(output, "a", encoding="utf-8") as f:
+            while True:
+                item = write_queue.get()
+                if item is None:
+                    break
+                f.write(item)
+                f.flush()
+    def run_items_or_multi(self):
+        # 3️⃣ Khởi động writer thread
+        writer_thread = threading.Thread(target=self.writer_thread_func)
+        writer_thread.start()
+
+        # 4️⃣ Khởi động nhiều thread crawl
+        threads = []
+        items_all = [self.items1, self.items2, self.items3, self.items4, self.items5]
+        for i, item in enumerate(items_all):
+            t = threading.Thread(target=self.handle_profile, args=(i, item))
+            t.start()
+            threads.append(t)
+
+        # 5️⃣ Đợi tất cả crawl xong
+        for t in threads:
+            t.join()
+
+        # 6️⃣ Kết thúc thread ghi
+        write_queue.put(None)
+        writer_thread.join()
+        
     def save_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump({
                 "items": self.items,
+                "items1": self.items1,
+                "items2": self.items2,
+                "items3": self.items3,
+                "items4": self.items4,
+                "items5": self.items5,
                 "done": self.done,
                 "count_done": self.done_count,
                 "file_path": self.file_path,
@@ -276,13 +365,30 @@ class SimpleTool:
 
     def del_state(self):
         with open(STATE_FILE, "w", encoding="utf-8") as f:
-            json.dump({"items": [], "done": [], "count_done": 0, "file_path": "", "root_id": "","text_command_load":""}, f, ensure_ascii=False, indent=2)
+            json.dump({
+                "items": [],
+                "items1": [],
+                "items2": [],
+                "items3": [],
+                "items4": [],
+                "items5": [],
+                "done": [], 
+                "count_done": 0, 
+                "file_path": "", 
+                "root_id": "",
+                "text_command_load":""
+                }, f, ensure_ascii=False, indent=2)
 
     def load_state(self):
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.items = data.get("items", [])
+                self.items1 = data.get("items1", [])
+                self.items2 = data.get("items2", [])
+                self.items3 = data.get("items3", [])
+                self.items4 = data.get("items4", [])
+                self.items5 = data.get("items5", [])
                 self.done = data.get("done", [])
                 self.root_id=data.get("root_id","")
                 self.file_path = data.get("file_path","")
